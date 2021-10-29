@@ -1,21 +1,14 @@
+use crate::global;
 use rand::Rng;
-/// A rectangle on the map, used to characterise a room.
 use std::cmp;
-use tcod::colors;
-
-//parameters for dungeon generator
-const ROOM_MAX_SIZE: i32 = 10;
-const ROOM_MIN_SIZE: i32 = 6;
-const MAX_ROOMS: i32 = 30;
-
-const COLOR_DARK_WALL: colors::Color = colors::Color { r: 0, g: 0, b: 100 };
-const COLOR_DARK_GROUND: colors::Color = colors::Color {
-    r: 50,
-    g: 50,
-    b: 150,
-};
+use tcod::colors::Color;
+use tcod::map::Map as FovMap;
 
 pub type Map = Vec<Vec<Tile>>;
+
+pub struct Game {
+    pub map: Map,
+}
 
 #[derive(Clone, Copy, Debug)]
 struct Rect {
@@ -74,8 +67,8 @@ fn create_v_tunnel(y1: i32, y2: i32, x: i32, map: &mut Map) {
 }
 
 fn create_random_room(width: i32, height: i32) -> Rect {
-    let w = rand::thread_rng().gen_range(ROOM_MIN_SIZE, ROOM_MAX_SIZE + 1);
-    let h = rand::thread_rng().gen_range(ROOM_MIN_SIZE, ROOM_MAX_SIZE + 1);
+    let w = rand::thread_rng().gen_range(global::ROOM_MIN_SIZE, global::ROOM_MAX_SIZE + 1);
+    let h = rand::thread_rng().gen_range(global::ROOM_MIN_SIZE, global::ROOM_MAX_SIZE + 1);
     // random position without going out of the boundaries of the map
     let x = rand::thread_rng().gen_range(0, width - w);
     let y = rand::thread_rng().gen_range(0, height - h);
@@ -84,7 +77,7 @@ fn create_random_room(width: i32, height: i32) -> Rect {
 }
 pub fn generate(width: i32, height: i32, start_x: i32, start_y: i32) -> Map {
     // fill map with wall tiles
-    let mut map = vec![vec![Tile::void(); height as usize]; width as usize];
+    let mut map = vec![vec![Tile::wall(); height as usize]; width as usize];
 
     let mut rooms = vec![];
 
@@ -95,7 +88,7 @@ pub fn generate(width: i32, height: i32, start_x: i32, start_y: i32) -> Map {
     create_room(first_room, &mut map);
     rooms.push(first_room);
 
-    for _ in 0..MAX_ROOMS {
+    for _ in 0..global::MAX_ROOMS {
         // random width and height
         let new_room = create_random_room(width, height);
 
@@ -130,12 +123,25 @@ pub fn generate(width: i32, height: i32, start_x: i32, start_y: i32) -> Map {
     map
 }
 
+pub fn init_fov_map(fov: &mut FovMap, game: &Game) {
+    for y in 0..global::MAP_HEIGHT {
+        for x in 0..global::MAP_WIDTH {
+            fov.set(
+                x,
+                y,
+                !game.map[x as usize][y as usize].block_sight,
+                !game.map[x as usize][y as usize].blocked,
+            );
+        }
+    }
+}
+
 /// A tile of the map and its properties
 #[derive(Clone, Copy, Debug)]
 pub struct Tile {
     pub blocked: bool,
     pub block_sight: bool,
-    pub color: colors::Color,
+    pub color: Color,
 }
 
 impl Tile {
@@ -143,7 +149,7 @@ impl Tile {
         Tile {
             blocked: false,
             block_sight: false,
-            color: COLOR_DARK_GROUND,
+            color: global::COLOR_DARK_GROUND,
         }
     }
 
@@ -151,14 +157,7 @@ impl Tile {
         Tile {
             blocked: true,
             block_sight: true,
-            color: COLOR_DARK_WALL,
-        }
-    }
-    pub fn void() -> Self {
-        Tile {
-            blocked: true,
-            block_sight: true,
-            color: colors::BLACK,
+            color: global::COLOR_DARK_WALL,
         }
     }
 }
