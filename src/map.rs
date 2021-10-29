@@ -141,6 +141,7 @@ pub fn init_fov_map(fov: &mut FovMap, game: &Game) {
 pub struct Tile {
     pub blocked: bool,
     pub block_sight: bool,
+    pub explored: bool,
     pub color: Color,
 }
 
@@ -149,6 +150,7 @@ impl Tile {
         Tile {
             blocked: false,
             block_sight: false,
+            explored: false,
             color: global::COLOR_DARK_GROUND,
         }
     }
@@ -157,6 +159,7 @@ impl Tile {
         Tile {
             blocked: true,
             block_sight: true,
+            explored: false,
             color: global::COLOR_DARK_WALL,
         }
     }
