@@ -1,5 +1,5 @@
-use crate::map;
 use crate::global;
+use crate::map;
 use tcod::colors::Color;
 use tcod::BackgroundFlag;
 use tcod::Console;
@@ -12,7 +12,7 @@ pub struct Object {
     pub y: i32,
     character: char,
     color: Color,
-    name: String,
+    pub name: String,
     pub blocks: bool,
     pub alive: bool,
 }
@@ -55,8 +55,23 @@ pub fn move_by(id: usize, dx: i32, dy: i32, map: &map::Map, objects: &mut [Objec
 }
 
 pub fn player_move_or_attack(dx: i32, dy: i32, map: &map::Map, objects: &mut [Object]) {
-    let (x, y) = objects[global::PLAYER].pos();
-    if !map::is_blocked(x + dx, y + dy, map, objects) {
-        objects[global::PLAYER].set_pos(x + dx, y + dy);
+    // the coordinates the player is moving to/attacking
+    let x = objects[global::PLAYER].x + dx;
+    let y = objects[global::PLAYER].y + dy;
+
+    // try to find an attackable object there
+    let target_id = objects.iter().position(|object| object.pos() == (x, y));
+
+    // attack if target found, move otherwise
+    match target_id {
+        Some(target_id) => {
+            println!(
+                "The {} laughs at your puny efforts to attack him!",
+                objects[target_id].name
+            );
+        }
+        None => {
+            move_by(global::PLAYER, dx, dy, &map, objects);
+        }
     }
 }
