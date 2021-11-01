@@ -20,23 +20,32 @@ struct Tcod {
     fov: FovMap,
 }
 
-fn ai_take_turn(monster_id: usize, tcod: &Tcod, map: &map::Map, objects: &mut [objects::Object]) {
+fn ai_take_turn(
+    monster_id: usize,
+    tcod: &Tcod,
+    game: &mut map::Game,
+    objects: &mut [objects::Object],
+) {
     // a basic monster takes its turn. If you can see it, it can see you
     let (monster_x, monster_y) = objects[monster_id].pos();
     if tcod.fov.is_in_fov(monster_x, monster_y) {
         if objects[monster_id].distance_to(&objects[global::PLAYER]) >= 2.0 {
             // move towards player if far away
             let (player_x, player_y) = objects[global::PLAYER].pos();
-            objects::move_towards(monster_id, player_x, player_y, &map, objects);
+            objects::move_towards(monster_id, player_x, player_y, game, objects);
         } else if objects[global::PLAYER].fighter.map_or(false, |f| f.hp > 0) {
             // close enough, attack! (if the player is still alive.)
             let (monster, player) = utils::mut_two(monster_id, global::PLAYER, objects);
-            monster.attack(player);
+            monster.attack(player, game);
         }
     }
 }
 
-fn handle_keys(tcod: &mut Tcod, map: &map::Map, objects: &mut [objects::Object]) -> PlayerAction {
+fn handle_keys(
+    tcod: &mut Tcod,
+    game: &mut map::Game,
+    objects: &mut [objects::Object],
+) -> PlayerAction {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
 
@@ -61,19 +70,19 @@ fn handle_keys(tcod: &mut Tcod, map: &map::Map, objects: &mut [objects::Object])
 
         // movement keys
         (Key { code: Up, .. }, _, true) => {
-            objects::player_move_or_attack(0, -1, &map, objects);
+            objects::player_move_or_attack(0, -1, game, objects);
             TookTurn
         }
         (Key { code: Down, .. }, _, true) => {
-            objects::player_move_or_attack(0, 1, &map, objects);
+            objects::player_move_or_attack(0, 1, game, objects);
             TookTurn
         }
         (Key { code: Left, .. }, _, true) => {
-            objects::player_move_or_attack(-1, 0, &map, objects);
+            objects::player_move_or_attack(-1, 0, game, objects);
             TookTurn
         }
         (Key { code: Right, .. }, _, true) => {
-            objects::player_move_or_attack(1, 0, &map, objects);
+            objects::player_move_or_attack(1, 0, game, objects);
             TookTurn
         }
 
@@ -174,6 +183,20 @@ fn render_all(tcod: &mut Tcod, game: &mut map::Game, objects: &[objects::Object]
         colors::DARKER_RED,
     );
 
+    // print the game messages, one line at a time
+    let mut y = global::MSG_HEIGHT as i32;
+    for &(ref msg, color) in game.messages.iter().rev() {
+        let msg_height = tcod
+            .panel
+            .get_height_rect(global::MSG_X, y, global::MSG_WIDTH, 0, msg);
+        y -= msg_height;
+        if y < 0 {
+            break;
+        }
+        tcod.panel.set_default_foreground(color);
+        tcod.panel
+            .print_rect(global::MSG_X, y, global::MSG_WIDTH, 0, msg);
+    }
     // blit the contents of `panel` to the root console
     blit(
         &tcod.panel,
@@ -226,10 +249,16 @@ fn main() {
     let mut game = map::Game {
         // generate map (at this point it's not drawn to the screen)
         map: map::generate(global::MAP_WIDTH, global::MAP_HEIGHT, 25, 23, &mut objects),
+        messages: map::Messages::new(),
     };
     map::init_fov_map(&mut tcod.fov, &game);
     let mut previous_player_position = (-1, -1);
 
+    // a warm welcoming message!
+    game.messages.add(
+        "Welcome stranger! Prepare to perish in the Tombs of the Ancient Kings.",
+        colors::RED,
+    );
     while !tcod.root.window_closed() {
         tcod.con.clear();
         let player = &objects[global::PLAYER];
@@ -250,7 +279,7 @@ fn main() {
         // handle keys and exit game if needed
         previous_player_position = player.pos();
 
-        let player_action = handle_keys(&mut tcod, &game.map, &mut objects);
+        let player_action = handle_keys(&mut tcod, &mut game, &mut objects);
         if player_action == PlayerAction::Exit {
             break;
         }
@@ -258,7 +287,7 @@ fn main() {
         if objects[global::PLAYER].alive && player_action != PlayerAction::DidntTakeTurn {
             for id in 0..objects.len() {
                 if objects[id].ai.is_some() {
-                    ai_take_turn(id, &tcod, &game.map, &mut objects);
+                    ai_take_turn(id, &tcod, &mut game, &mut objects);
                 }
             }
         }
