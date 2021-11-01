@@ -1,4 +1,5 @@
 use crate::map;
+use crate::global;
 use tcod::colors::Color;
 use tcod::BackgroundFlag;
 use tcod::Console;
@@ -50,5 +51,12 @@ pub fn move_by(id: usize, dx: i32, dy: i32, map: &map::Map, objects: &mut [Objec
     let (x, y) = objects[id].pos();
     if !map::is_blocked(x + dx, y + dy, map, objects) {
         objects[id].set_pos(x + dx, y + dy);
+    }
+}
+
+pub fn player_move_or_attack(dx: i32, dy: i32, map: &map::Map, objects: &mut [Object]) {
+    let (x, y) = objects[global::PLAYER].pos();
+    if !map::is_blocked(x + dx, y + dy, map, objects) {
+        objects[global::PLAYER].set_pos(x + dx, y + dy);
     }
 }

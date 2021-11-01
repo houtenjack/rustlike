@@ -4,39 +4,65 @@ use tcod::map::Map as FovMap;
 mod global;
 mod map;
 mod objects;
+use PlayerAction::*;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PlayerAction {
+    TookTurn,
+    DidntTakeTurn,
+    Exit,
+}
 struct Tcod {
     root: Root,
     con: Offscreen,
     fov: FovMap,
 }
-fn handle_keys(tcod: &mut Tcod, map: &map::Map, objects: &mut [objects::Object]) -> bool {
+
+fn handle_keys(tcod: &mut Tcod, map: &map::Map, objects: &mut [objects::Object]) -> PlayerAction {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
 
     let key = tcod.root.wait_for_keypress(true);
-    match key {
-        Key {
-            code: Enter,
-            alt: true,
-            ..
-        } => {
+    let player_alive = &objects[global::PLAYER].alive;
+    let ret = match (key, key.text(), player_alive) {
+        (
+            Key {
+                code: Enter,
+                alt: true,
+                ..
+            },
+            _,
+            _,
+        ) => {
             // Alt+Enter: toggle fullscreen
             let fullscreen = tcod.root.is_fullscreen();
             tcod.root.set_fullscreen(!fullscreen);
+            DidntTakeTurn
         }
-        Key { code: Escape, .. } => return true, // exit game
+        (Key { code: Escape, .. }, _, _) => return Exit, // exit game
 
         // movement keys
-        Key { code: Up, .. } => objects::move_by(global::PLAYER, 0, -1, &map, objects),
-        Key { code: Down, .. } => objects::move_by(global::PLAYER, 0, 1, &map, objects),
-        Key { code: Left, .. } => objects::move_by(global::PLAYER, -1, 0, &map, objects),
-        Key { code: Right, .. } => objects::move_by(global::PLAYER, 1, 0, &map, objects),
+        (Key { code: Up, .. }, _, true) => {
+            objects::player_move_or_attack(0, -1, &map, objects);
+            TookTurn
+        }
+        (Key { code: Down, .. }, _, true) => {
+            objects::player_move_or_attack(0, 1, &map, objects);
+            TookTurn
+        }
+        (Key { code: Left, .. }, _, true) => {
+            objects::player_move_or_attack(-1, 0, &map, objects);
+            TookTurn
+        }
+        (Key { code: Right, .. }, _, true) => {
+            objects::player_move_or_attack(1, 0, &map, objects);
+            TookTurn
+        }
 
-        _ => {}
-    }
+        _ => DidntTakeTurn,
+    };
 
-    false
+    ret
 }
 
 fn render_all(tcod: &mut Tcod, game: &mut map::Game, objects: &[objects::Object]) {
@@ -123,8 +149,8 @@ fn main() {
         // handle keys and exit game if needed
         previous_player_position = player.pos();
 
-        let exit = handle_keys(&mut tcod, &game.map, &mut objects);
-        if exit {
+        let player_action = handle_keys(&mut tcod, &game.map, &mut objects);
+        if player_action == PlayerAction::Exit {
             break;
         }
     }
