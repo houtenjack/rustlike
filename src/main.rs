@@ -16,6 +16,7 @@ pub enum PlayerAction {
 struct Tcod {
     root: Root,
     con: Offscreen,
+    panel: Offscreen,
     fov: FovMap,
 }
 
@@ -82,6 +83,39 @@ fn handle_keys(tcod: &mut Tcod, map: &map::Map, objects: &mut [objects::Object])
     ret
 }
 
+fn render_bar(
+    panel: &mut Offscreen,
+    x: i32,
+    y: i32,
+    total_width: i32,
+    name: &str,
+    value: i32,
+    maximum: i32,
+    bar_color: colors::Color,
+    back_color: colors::Color,
+) {
+    // render a bar (HP, experience, etc). First calculate the width of the bar
+    let bar_width = (value as f32 / maximum as f32 * total_width as f32) as i32;
+
+    // render the background first
+    panel.set_default_background(back_color);
+    panel.rect(x, y, total_width, 1, false, BackgroundFlag::Screen);
+
+    // now render the bar on top
+    panel.set_default_background(bar_color);
+    if bar_width > 0 {
+        panel.rect(x, y, bar_width, 1, false, BackgroundFlag::Screen);
+    }
+    panel.set_default_foreground(colors::WHITE);
+    panel.print_ex(
+        x + total_width / 2,
+        y,
+        BackgroundFlag::None,
+        TextAlignment::Center,
+        &format!("{}: {}/{}", name, value, maximum),
+    );
+}
+
 fn render_all(tcod: &mut Tcod, game: &mut map::Game, objects: &[objects::Object]) {
     let mut to_draw: Vec<_> = objects
         .iter()
@@ -121,8 +155,35 @@ fn render_all(tcod: &mut Tcod, game: &mut map::Game, objects: &[objects::Object]
         1.0,
         1.0,
     );
+    // prepare to render the GUI panel
+    tcod.panel.set_default_background(colors::BLACK);
+    tcod.panel.clear();
+
     // show the player's stats
-    tcod.root.set_default_foreground(colors::WHITE);
+    let hp = objects[global::PLAYER].fighter.map_or(0, |f| f.hp);
+    let max_hp = objects[global::PLAYER].fighter.map_or(0, |f| f.max_hp);
+    render_bar(
+        &mut tcod.panel,
+        1,
+        1,
+        global::BAR_WIDTH,
+        "HP",
+        hp,
+        max_hp,
+        colors::LIGHT_RED,
+        colors::DARKER_RED,
+    );
+
+    // blit the contents of `panel` to the root console
+    blit(
+        &tcod.panel,
+        (0, 0),
+        (global::SCREEN_WIDTH, global::PANEL_HEIGHT),
+        &mut tcod.root,
+        (0, global::PANEL_Y),
+        1.0,
+        1.0,
+    );
     if let Some(fighter) = objects[global::PLAYER].fighter {
         tcod.root.print_ex(
             1,
@@ -145,6 +206,7 @@ fn main() {
     let mut tcod = Tcod {
         root,
         con: Offscreen::new(global::MAP_WIDTH, global::MAP_HEIGHT),
+        panel: Offscreen::new(global::MAP_WIDTH, global::PANEL_HEIGHT),
         fov: FovMap::new(global::MAP_WIDTH, global::MAP_HEIGHT),
     };
     tcod::system::set_fps(global::LIMIT_FPS);
