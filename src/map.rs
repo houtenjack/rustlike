@@ -1,4 +1,5 @@
 use crate::global;
+use crate::objects::Object;
 use rand::Rng;
 use std::cmp;
 use tcod::colors::Color;
@@ -75,7 +76,13 @@ fn create_random_room(width: i32, height: i32) -> Rect {
 
     Rect::new(x, y, w, h)
 }
-pub fn generate(width: i32, height: i32, start_x: i32, start_y: i32) -> Map {
+pub fn generate(
+    width: i32,
+    height: i32,
+    start_x: i32,
+    start_y: i32,
+    objs: &mut Vec<Object>,
+) -> Map {
     // fill map with wall tiles
     let mut map = vec![vec![Tile::wall(); height as usize]; width as usize];
 
@@ -117,6 +124,7 @@ pub fn generate(width: i32, height: i32, start_x: i32, start_y: i32) -> Map {
                 }
             }
             rooms.push(new_room);
+            place_objects(new_room, &map, objs);
         }
     }
 
@@ -163,4 +171,37 @@ impl Tile {
             color: global::COLOR_DARK_WALL,
         }
     }
+}
+fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
+    // choose random number of monsters
+    let num_monsters = rand::thread_rng().gen_range(0, global::MAX_ROOM_MONSTERS + 1);
+
+    for _ in 0..num_monsters {
+        // choose random spot for this monster
+        let x = rand::thread_rng().gen_range(room.x1 + 1, room.x2);
+        let y = rand::thread_rng().gen_range(room.y1 + 1, room.y2);
+        if !is_blocked(x, y, map, objects) {
+            let mut monster = if rand::random::<f32>() < 0.8 {
+                // 80% chance of getting an orc
+                // create an orc
+                Object::new(x, y, 'o', "orc", global::ORC_COLOR, true)
+            } else {
+                Object::new(x, y, 'T', "troll", global::TROLL_COLOR, true)
+            };
+
+            monster.alive=true;
+            objects.push(monster);
+        }
+    }
+}
+
+pub fn is_blocked(x: i32, y: i32, map: &Map, objects: &[Object]) -> bool {
+    // first test the map tile
+    if map[x as usize][y as usize].blocked {
+        return true;
+    }
+    // now check for any blocking objects
+    objects
+        .iter()
+        .any(|object| object.blocks && object.pos() == (x, y))
 }

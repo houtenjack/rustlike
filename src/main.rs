@@ -10,7 +10,7 @@ struct Tcod {
     con: Offscreen,
     fov: FovMap,
 }
-fn handle_keys(tcod: &mut Tcod, game: &map::Game, player: &mut objects::Object) -> bool {
+fn handle_keys(tcod: &mut Tcod, map: &map::Map, objects: &mut [objects::Object]) -> bool {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
 
@@ -28,10 +28,10 @@ fn handle_keys(tcod: &mut Tcod, game: &map::Game, player: &mut objects::Object) 
         Key { code: Escape, .. } => return true, // exit game
 
         // movement keys
-        Key { code: Up, .. } => player.move_by(0, -1, game),
-        Key { code: Down, .. } => player.move_by(0, 1, game),
-        Key { code: Left, .. } => player.move_by(-1, 0, game),
-        Key { code: Right, .. } => player.move_by(1, 0, game),
+        Key { code: Up, .. } => objects::move_by(global::PLAYER, 0, -1, &map, objects),
+        Key { code: Down, .. } => objects::move_by(global::PLAYER, 0, 1, &map, objects),
+        Key { code: Left, .. } => objects::move_by(global::PLAYER, -1, 0, &map, objects),
+        Key { code: Right, .. } => objects::move_by(global::PLAYER, 1, 0, &map, objects),
 
         _ => {}
     }
@@ -90,23 +90,23 @@ fn main() {
         fov: FovMap::new(global::MAP_WIDTH, global::MAP_HEIGHT),
     };
     tcod::system::set_fps(global::LIMIT_FPS);
+    // create object representing the player
+    let mut player = objects::Object::new(25, 23, '@', "player", colors::WHITE, false);
+    player.alive = true;
+
+    // the list of objects with those two
+    let mut objects = vec![player];
     let mut game = map::Game {
         // generate map (at this point it's not drawn to the screen)
-        map: map::generate(global::MAP_WIDTH, global::MAP_HEIGHT, 25, 23),
+        map: map::generate(global::MAP_WIDTH, global::MAP_HEIGHT, 25, 23, &mut objects),
     };
     map::init_fov_map(&mut tcod.fov, &game);
     let mut previous_player_position = (-1, -1);
 
-    // create object representing the player
-    let player = objects::Object::new(25, 23, '@', colors::WHITE);
-
-    // the list of objects with those two
-    let mut objects = [player];
-
     while !tcod.root.window_closed() {
         tcod.con.clear();
-        let player = &objects[0];
-        let fov_recompute = previous_player_position != (player.x, player.y);
+        let player = &objects[global::PLAYER];
+        let fov_recompute = previous_player_position != player.pos();
         if fov_recompute {
             tcod.fov.compute_fov(
                 player.x,
@@ -119,11 +119,11 @@ fn main() {
         render_all(&mut tcod, &mut game, &objects);
         tcod.root.flush();
 
-        let player = &mut objects[0];
+        let player = &mut objects[global::PLAYER];
         // handle keys and exit game if needed
-        previous_player_position = (player.x, player.y);
+        previous_player_position = player.pos();
 
-        let exit = handle_keys(&mut tcod, &game, player);
+        let exit = handle_keys(&mut tcod, &game.map, &mut objects);
         if exit {
             break;
         }
