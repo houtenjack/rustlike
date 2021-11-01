@@ -1,4 +1,5 @@
 use crate::global;
+use crate::objects;
 use crate::objects::Object;
 use rand::Rng;
 use std::cmp;
@@ -184,12 +185,28 @@ fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
             let mut monster = if rand::random::<f32>() < 0.8 {
                 // 80% chance of getting an orc
                 // create an orc
-                Object::new(x, y, 'o', "orc", global::ORC_COLOR, true)
+                let mut orc = Object::new(x, y, 'o', "orc", global::ORC_COLOR, true);
+                orc.fighter = Some(objects::Fighter {
+                    max_hp: 10,
+                    hp: 10,
+                    defense: 0,
+                    power: 3,
+                });
+                orc.ai = Some(objects::Ai::Basic);
+                orc
             } else {
-                Object::new(x, y, 'T', "troll", global::TROLL_COLOR, true)
+                let mut troll = Object::new(x, y, 'T', "troll", global::TROLL_COLOR, true);
+                troll.fighter = Some(objects::Fighter {
+                    max_hp: 16,
+                    hp: 16,
+                    defense: 1,
+                    power: 4,
+                });
+                troll.ai = Some(objects::Ai::Basic);
+                troll
             };
 
-            monster.alive=true;
+            monster.alive = true;
             objects.push(monster);
         }
     }

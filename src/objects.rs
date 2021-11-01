@@ -15,6 +15,8 @@ pub struct Object {
     pub name: String,
     pub blocks: bool,
     pub alive: bool,
+    pub fighter: Option<Fighter>,
+    pub ai: Option<Ai>,
 }
 
 impl Object {
@@ -27,7 +29,15 @@ impl Object {
             color: color,
             blocks: blocks,
             alive: false,
+            fighter: None,
+            ai: None,
         }
+    }
+
+    pub fn distance_to(&self, other: &Object) -> f32 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        ((dx.pow(2) + dy.pow(2)) as f32).sqrt()
     }
 
     pub fn pos(&self) -> (i32, i32) {
@@ -46,6 +56,18 @@ impl Object {
     }
 }
 
+// combat-related properties and methods (monster, player, NPC).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Fighter {
+    pub max_hp: i32,
+    pub hp: i32,
+    pub defense: i32,
+    pub power: i32,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub enum Ai {
+    Basic,
+}
 /// move by the given amount, if the destination is not blocked
 pub fn move_by(id: usize, dx: i32, dy: i32, map: &map::Map, objects: &mut [Object]) {
     let (x, y) = objects[id].pos();
@@ -75,3 +97,23 @@ pub fn player_move_or_attack(dx: i32, dy: i32, map: &map::Map, objects: &mut [Ob
         }
     }
 }
+
+pub fn move_towards(
+    id: usize,
+    target_x: i32,
+    target_y: i32,
+    map: &map::Map,
+    objects: &mut [Object],
+) {
+    // vector from this object to the target, and distance
+    let dx = target_x - objects[id].x;
+    let dy = target_y - objects[id].y;
+    let distance = ((dx.pow(2) + dy.pow(2)) as f32).sqrt();
+
+    // normalize it to length 1 (preserving direction), then round it and
+    // convert to integer so the movement is restricted to the map grid
+    let dx = (dx as f32 / distance).round() as i32;
+    let dy = (dy as f32 / distance).round() as i32;
+    move_by(id, dx, dy, map, objects);
+}
+

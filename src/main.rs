@@ -17,6 +17,24 @@ struct Tcod {
     con: Offscreen,
     fov: FovMap,
 }
+fn ai_take_turn(monster_id: usize, tcod: &Tcod, map: &map::Map, objects: &mut [objects::Object]) {
+    // a basic monster takes its turn. If you can see it, it can see you
+    let (monster_x, monster_y) = objects[monster_id].pos();
+    if tcod.fov.is_in_fov(monster_x, monster_y) {
+        if objects[monster_id].distance_to(&objects[global::PLAYER]) >= 2.0 {
+            // move towards player if far away
+            let (player_x, player_y) = objects[global::PLAYER].pos();
+            objects::move_towards(monster_id, player_x, player_y, &map, objects);
+        } else if objects[global::PLAYER].fighter.map_or(false, |f| f.hp > 0) {
+            // close enough, attack! (if the player is still alive.)
+            let monster = &objects[monster_id];
+            println!(
+                "The attack of the {} bounces off your shiny metal armor!",
+                monster.name
+            );
+        }
+    }
+}
 
 fn handle_keys(tcod: &mut Tcod, map: &map::Map, objects: &mut [objects::Object]) -> PlayerAction {
     use tcod::input::Key;
@@ -119,6 +137,12 @@ fn main() {
     // create object representing the player
     let mut player = objects::Object::new(25, 23, '@', "player", colors::WHITE, false);
     player.alive = true;
+    player.fighter = Some(objects::Fighter {
+        max_hp: 30,
+        hp: 30,
+        defense: 2,
+        power: 5,
+    });
 
     // the list of objects with those two
     let mut objects = vec![player];
@@ -155,10 +179,9 @@ fn main() {
         }
         // let monsters take their turn
         if objects[global::PLAYER].alive && player_action != PlayerAction::DidntTakeTurn {
-            for object in &objects {
-                // only if object is not player
-                if (object as *const _) != (&objects[global::PLAYER] as *const _) {
-                    println!("The {} growls!", object.name);
+            for id in 0..objects.len() {
+                if objects[id].ai.is_some() {
+                    ai_take_turn(id, &tcod, &game.map, &mut objects);
                 }
             }
         }
