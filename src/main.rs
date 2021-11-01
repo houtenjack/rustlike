@@ -4,6 +4,7 @@ use tcod::map::Map as FovMap;
 mod global;
 mod map;
 mod objects;
+mod utils;
 use PlayerAction::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -17,6 +18,7 @@ struct Tcod {
     con: Offscreen,
     fov: FovMap,
 }
+
 fn ai_take_turn(monster_id: usize, tcod: &Tcod, map: &map::Map, objects: &mut [objects::Object]) {
     // a basic monster takes its turn. If you can see it, it can see you
     let (monster_x, monster_y) = objects[monster_id].pos();
@@ -27,11 +29,8 @@ fn ai_take_turn(monster_id: usize, tcod: &Tcod, map: &map::Map, objects: &mut [o
             objects::move_towards(monster_id, player_x, player_y, &map, objects);
         } else if objects[global::PLAYER].fighter.map_or(false, |f| f.hp > 0) {
             // close enough, attack! (if the player is still alive.)
-            let monster = &objects[monster_id];
-            println!(
-                "The attack of the {} bounces off your shiny metal armor!",
-                monster.name
-            );
+            let (monster, player) = utils::mut_two(monster_id, global::PLAYER, objects);
+            monster.attack(player);
         }
     }
 }
@@ -84,11 +83,15 @@ fn handle_keys(tcod: &mut Tcod, map: &map::Map, objects: &mut [objects::Object])
 }
 
 fn render_all(tcod: &mut Tcod, game: &mut map::Game, objects: &[objects::Object]) {
-    // draw all objects in the list
-    for object in objects {
-        if tcod.fov.is_in_fov(object.x, object.y) {
-            object.draw(&mut tcod.con);
-        }
+    let mut to_draw: Vec<_> = objects
+        .iter()
+        .filter(|o| tcod.fov.is_in_fov(o.x, o.y))
+        .collect();
+    // sort so that non-blocking objects come first
+    to_draw.sort_by(|o1, o2| o1.blocks.cmp(&o2.blocks));
+    // draw the objects in the list
+    for object in &to_draw {
+        object.draw(&mut tcod.con);
     }
     // go through all tiles, and set their background color
     for y in 0..global::MAP_HEIGHT {
@@ -118,6 +121,17 @@ fn render_all(tcod: &mut Tcod, game: &mut map::Game, objects: &[objects::Object]
         1.0,
         1.0,
     );
+    // show the player's stats
+    tcod.root.set_default_foreground(colors::WHITE);
+    if let Some(fighter) = objects[global::PLAYER].fighter {
+        tcod.root.print_ex(
+            1,
+            global::SCREEN_HEIGHT - 2,
+            BackgroundFlag::None,
+            TextAlignment::Left,
+            format!("HP: {}/{} ", fighter.hp, fighter.max_hp),
+        );
+    }
 }
 
 fn main() {
@@ -142,6 +156,7 @@ fn main() {
         hp: 30,
         defense: 2,
         power: 5,
+        on_death: objects::DeathCallback::Player,
     });
 
     // the list of objects with those two

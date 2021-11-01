@@ -191,6 +191,7 @@ fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                     hp: 10,
                     defense: 0,
                     power: 3,
+                    on_death: objects::DeathCallback::Monster,
                 });
                 orc.ai = Some(objects::Ai::Basic);
                 orc
@@ -201,6 +202,7 @@ fn place_objects(room: Rect, map: &Map, objects: &mut Vec<Object>) {
                     hp: 16,
                     defense: 1,
                     power: 4,
+                    on_death: objects::DeathCallback::Monster,
                 });
                 troll.ai = Some(objects::Ai::Basic);
                 troll

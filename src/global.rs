@@ -27,3 +27,4 @@ pub const COLOR_DARK_GROUND: Color = Color {
 
 pub const ORC_COLOR: Color = colors::DESATURATED_GREEN;
 pub const TROLL_COLOR: Color = colors::DARKER_GREEN;
+pub const DEAD_COLOR: Color = colors::DARK_RED;
